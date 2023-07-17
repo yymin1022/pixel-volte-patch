@@ -95,36 +95,49 @@ class CarrierModer(private val context: Context) : Moder() {
 }
 
 class SubscriptionModer(val subscriptionId: Int) : Moder() {
-    fun updateCarrierConfig(key: String, value: Boolean) {
-        Log.d(TAG, "Setting $key to $value")
+    private fun publishBundle(fn: (PersistableBundle) -> Unit) {
         val iCclInstance = this.loadCachedInterface { carrierConfigLoader }
         val overrideBundle = PersistableBundle()
-        overrideBundle.putBoolean(key, value)
+        fn(overrideBundle)
         iCclInstance.overrideConfig(this.subscriptionId, overrideBundle, true)
+    }
+    fun updateCarrierConfig(key: String, value: Boolean) {
+        Log.d(TAG, "Setting $key to $value")
+        publishBundle { it.putBoolean(key, value) }
     }
 
     fun updateCarrierConfig(key: String, value: String) {
         Log.d(TAG, "Setting $key to $value")
-        val iCclInstance = this.loadCachedInterface { carrierConfigLoader }
-        val overrideBundle = PersistableBundle()
-        overrideBundle.putString(key, value)
-        iCclInstance.overrideConfig(this.subscriptionId, overrideBundle, true)
+        publishBundle { it.putString(key, value) }
     }
 
     fun updateCarrierConfig(key: String, value: Int) {
         Log.d(TAG, "Setting $key to $value")
-        val iCclInstance = this.loadCachedInterface { carrierConfigLoader }
-        val overrideBundle = PersistableBundle()
-        overrideBundle.putInt(key, value)
-        iCclInstance.overrideConfig(this.subscriptionId, overrideBundle, true)
+        publishBundle { it.putInt(key, value) }
+    }
+    fun updateCarrierConfig(key: String, value: Long) {
+        Log.d(TAG, "Setting $key to $value")
+        publishBundle { it.putLong(key, value) }
     }
 
     fun updateCarrierConfig(key: String, value: IntArray) {
         Log.d(TAG, "Setting $key to $value")
-        val iCclInstance = this.loadCachedInterface { carrierConfigLoader }
-        val overrideBundle = PersistableBundle()
-        overrideBundle.putIntArray(key, value)
-        iCclInstance.overrideConfig(this.subscriptionId, overrideBundle, true)
+        publishBundle { it.putIntArray(key, value) }
+    }
+
+    fun updateCarrierConfig(key: String, value: BooleanArray) {
+        Log.d(TAG, "Setting $key to $value")
+        publishBundle { it.putBooleanArray(key, value) }
+    }
+
+    fun updateCarrierConfig(key: String, value: Array<String>) {
+        Log.d(TAG, "Setting $key to $value")
+        publishBundle { it.putStringArray(key, value) }
+    }
+
+    fun updateCarrierConfig(key: String, value: LongArray) {
+        Log.d(TAG, "Setting $key to $value")
+        publishBundle { it.putLongArray(key, value) }
     }
 
     fun clearCarrierConfig() {
@@ -138,7 +151,7 @@ class SubscriptionModer(val subscriptionId: Int) : Moder() {
         telephony.resetIms(sub.getSlotIndex(this.subscriptionId))
     }
 
-    private fun getStringValue(key: String): String {
+    fun getStringValue(key: String): String {
         val subscriptionId = this.subscriptionId
         if (subscriptionId < 0) {
             return ""
@@ -149,7 +162,7 @@ class SubscriptionModer(val subscriptionId: Int) : Moder() {
         return config.getString(key)
     }
 
-    private fun getBooleanValue(key: String): Boolean {
+    fun getBooleanValue(key: String): Boolean {
         val subscriptionId = this.subscriptionId
         if (subscriptionId < 0) {
             return false
@@ -160,7 +173,7 @@ class SubscriptionModer(val subscriptionId: Int) : Moder() {
         return config.getBoolean(key)
     }
 
-    private fun getIntValue(key: String): Int {
+    fun getIntValue(key: String): Int {
         val subscriptionId = this.subscriptionId
         if (subscriptionId < 0) {
             return -1
@@ -171,7 +184,29 @@ class SubscriptionModer(val subscriptionId: Int) : Moder() {
         return config.getInt(key)
     }
 
-    private fun getIntArrayValue(key: String): IntArray {
+    fun getLongValue(key: String): Long {
+        val subscriptionId = this.subscriptionId
+        if (subscriptionId < 0) {
+            return -1
+        }
+        val iCclInstance = this.loadCachedInterface { carrierConfigLoader }
+
+        val config = iCclInstance.getConfigForSubId(subscriptionId, iCclInstance.defaultCarrierServicePackageName)
+        return config.getLong(key)
+    }
+
+    fun getBooleanArrayValue(key: String): BooleanArray {
+        val subscriptionId = this.subscriptionId
+        if (subscriptionId < 0) {
+            return booleanArrayOf()
+        }
+        val iCclInstance = this.loadCachedInterface { carrierConfigLoader }
+
+        val config = iCclInstance.getConfigForSubId(subscriptionId, iCclInstance.defaultCarrierServicePackageName)
+        return config.getBooleanArray(key)
+    }
+
+    fun getIntArrayValue(key: String): IntArray {
         val subscriptionId = this.subscriptionId
         if (subscriptionId < 0) {
             return intArrayOf()
@@ -182,11 +217,55 @@ class SubscriptionModer(val subscriptionId: Int) : Moder() {
         return config.getIntArray(key)
     }
 
-    val isVolteConfigEnabled: Boolean
+    fun getStringArrayValue(key: String): Array<String> {
+        val subscriptionId = this.subscriptionId
+        if (subscriptionId < 0) {
+            return arrayOf()
+        }
+        val iCclInstance = this.loadCachedInterface { carrierConfigLoader }
+
+        val config = iCclInstance.getConfigForSubId(subscriptionId, iCclInstance.defaultCarrierServicePackageName)
+        return config.getStringArray(key)
+    }
+    fun getValue(key: String): Any? {
+        val subscriptionId = this.subscriptionId
+        if (subscriptionId < 0) {
+            return null
+        }
+        val iCclInstance = this.loadCachedInterface { carrierConfigLoader }
+
+        val config = iCclInstance.getConfigForSubId(subscriptionId, iCclInstance.defaultCarrierServicePackageName)
+        return config.get(key)
+    }
+
+    val isVoLteConfigEnabled: Boolean
         get() = this.getBooleanValue(CarrierConfigManager.KEY_CARRIER_VOLTE_AVAILABLE_BOOL)
 
-    val isVowifiConfigEnabled: Boolean
+    val isVoNrConfigEnabled: Boolean
+        get() = this.getBooleanValue(CarrierConfigManager.KEY_VONR_ENABLED_BOOL) &&
+            this.getBooleanValue(CarrierConfigManager.KEY_VONR_SETTING_VISIBILITY_BOOL)
+
+    val isCrossSIMConfigEnabled: Boolean
+        get() {
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                this.getBooleanValue(CarrierConfigManager.KEY_CARRIER_CROSS_SIM_IMS_AVAILABLE_BOOL) &&
+                    this.getBooleanValue(CarrierConfigManager.KEY_ENABLE_CROSS_SIM_CALLING_ON_OPPORTUNISTIC_DATA_BOOL)
+            } else {
+                false
+            }
+        }
+
+    val isVoWifiConfigEnabled: Boolean
         get() = this.getBooleanValue(CarrierConfigManager.KEY_CARRIER_WFC_IMS_AVAILABLE_BOOL)
+
+    val isVoWifiWhileRoamingEnabled: Boolean
+        get() = this.getBooleanValue(CarrierConfigManager.KEY_CARRIER_DEFAULT_WFC_IMS_ROAMING_ENABLED_BOOL)
+
+    val showIMSinSIMInfo: Boolean
+        get() = this.getBooleanValue(CarrierConfigManager.KEY_SHOW_IMS_REGISTRATION_STATUS_BOOL)
+
+    val allowAddingAPNs: Boolean
+        get() = this.getBooleanValue(CarrierConfigManager.KEY_ALLOW_ADDING_APNS_BOOL)
 
     val showVoWifiMode: Boolean
         get() = this.getBooleanValue(CarrierConfigManager.KEY_EDITABLE_WFC_MODE_BOOL)
@@ -197,11 +276,23 @@ class SubscriptionModer(val subscriptionId: Int) : Moder() {
     val showVoWifiInNetworkName: Int
         get() = this.getIntValue(CarrierConfigManager.KEY_WFC_SPN_FORMAT_IDX_INT)
 
+    val showVoWifiIcon: Boolean
+        get() = this.getBooleanValue(CarrierConfigManager.KEY_SHOW_WIFI_CALLING_ICON_IN_STATUS_BAR_BOOL)
+
+    val alwaysDataRATIcon: Boolean
+        get() = this.getBooleanValue(CarrierConfigManager.KEY_ALWAYS_SHOW_DATA_RAT_ICON_BOOL)
+
     val supportWfcWifiOnly: Boolean
         get() = this.getBooleanValue(CarrierConfigManager.KEY_CARRIER_WFC_SUPPORTS_WIFI_ONLY_BOOL)
 
     val isVtConfigEnabled: Boolean
         get() = this.getBooleanValue(CarrierConfigManager.KEY_CARRIER_VT_AVAILABLE_BOOL)
+
+    val ssOverUtEnabled: Boolean
+        get() = this.getBooleanValue(CarrierConfigManager.KEY_CARRIER_SUPPORTS_SS_OVER_UT_BOOL)
+
+    val ssOverCDMAEnabled: Boolean
+        get() = this.getBooleanValue(CarrierConfigManager.KEY_SUPPORT_SS_OVER_CDMA_BOOL)
 
     val isShow4GForLteEnabled: Boolean
         get() = this.getBooleanValue(CarrierConfigManager.KEY_SHOW_4G_FOR_LTE_DATA_ICON_BOOL)
