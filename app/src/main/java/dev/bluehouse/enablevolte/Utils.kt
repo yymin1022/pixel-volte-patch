@@ -2,6 +2,7 @@ package dev.bluehouse.enablevolte
 
 import android.content.pm.PackageManager
 import android.telephony.SubscriptionInfo
+import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.runtime.Composable
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavBackStackEntry
@@ -14,19 +15,26 @@ import com.github.kittinunf.fuel.json.responseJson
 import com.github.kittinunf.result.Result
 import rikka.shizuku.Shizuku
 
-fun checkShizukuPermission(code: Int): Boolean {
-    return if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
-        true
-    } else if (Shizuku.shouldShowRequestPermissionRationale()) {
-        false
+enum class ShizukuStatus {
+    GRANTED, NOT_GRANTED, STOPPED
+}
+fun checkShizukuPermission(code: Int): ShizukuStatus {
+    return if (Shizuku.getBinder() != null) {
+        if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
+            ShizukuStatus.GRANTED
+        } else {
+            if (!Shizuku.shouldShowRequestPermissionRationale()) {
+                Shizuku.requestPermission(0)
+            }
+            ShizukuStatus.NOT_GRANTED
+        }
     } else {
-        Shizuku.requestPermission(code)
-        false
+        ShizukuStatus.STOPPED
     }
 }
 
 val SubscriptionInfo.uniqueName: String
-    get() = "${this.subscriptionId} - ${this.displayName}"
+    get() = "${this.displayName} (SIM ${this.simSlotIndex + 1})"
 
 fun getLatestAppVersion(handler: (String) -> Unit) {
     "https://api.github.com/repos/kyujin-cho/pixel-volte-patch/releases"
@@ -53,7 +61,7 @@ fun NavGraphBuilder.composable(
     label: String,
     arguments: List<NamedNavArgument> = emptyList(),
     deepLinks: List<NavDeepLink> = emptyList(),
-    content: @Composable (NavBackStackEntry) -> Unit,
+    content: @Composable AnimatedContentScope.(@JvmSuppressWildcards NavBackStackEntry) -> Unit,
 ) {
     addDestination(
         ComposeNavigator.Destination(provider[ComposeNavigator::class], content).apply {

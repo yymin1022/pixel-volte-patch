@@ -1,12 +1,12 @@
 package dev.bluehouse.enablevolte.pages
 
 import android.telephony.CarrierConfigManager
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -24,10 +24,10 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialogDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +40,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -54,12 +55,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import dev.bluehouse.enablevolte.ClickablePropertyView
-import dev.bluehouse.enablevolte.FiniteLoadingDialog
-import dev.bluehouse.enablevolte.InfiniteLoadingDialog
 import dev.bluehouse.enablevolte.R
 import dev.bluehouse.enablevolte.SubscriptionModer
-import dev.bluehouse.enablevolte.ValueType
+import dev.bluehouse.enablevolte.components.ClickablePropertyView
+import dev.bluehouse.enablevolte.components.FiniteLoadingDialog
+import dev.bluehouse.enablevolte.components.InfiniteLoadingDialog
+import dev.bluehouse.enablevolte.components.ValueType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.lang.reflect.Field
@@ -107,10 +108,10 @@ data class DataRow(override val field: Field, override val rawValue: Any?) : Bas
     }
     override val typedValue: Any? get() =
         when (fieldType) {
-            ValueType.Int -> this.value?.toInt()
-            ValueType.Long -> this.value?.toLong()
-            ValueType.Bool -> this.value?.let { it == "true" } ?: { null }
-            ValueType.String -> this.value
+            ValueType.Int, ValueType.IntArray -> this.value?.toInt()
+            ValueType.Long, ValueType.LongArray -> this.value?.toLong()
+            ValueType.Bool, ValueType.BoolArray -> this.value?.let { it == "true" } ?: { null }
+            ValueType.String, ValueType.StringArray -> this.value
             else -> null
         }
 }
@@ -179,7 +180,7 @@ fun SingleValueEditor(data: DataRow, onValueChange: (String) -> Unit) {
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth(),
         )
-        is String -> TextField(
+        is String, null -> TextField(
             value = data.value ?: "",
             onValueChange = { onValueChange(it) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
@@ -193,7 +194,7 @@ fun SingleValueEditor(data: DataRow, onValueChange: (String) -> Unit) {
 fun MultiValueEditor(_data: ListDataRow, onUpdate: (List<String?>) -> Unit) {
     val scrollState = rememberScrollState()
     var data by remember { mutableStateOf(_data) }
-    var editIndex by remember { mutableStateOf(-1) }
+    var editIndex by remember { mutableIntStateOf(-1) }
     val items by remember(data.value) { derivedStateOf { data.value } }
     LaunchedEffect(items) {
         scrollState.scrollTo(scrollState.maxValue)
@@ -232,7 +233,7 @@ fun MultiValueEditor(_data: ListDataRow, onUpdate: (List<String?>) -> Unit) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.weight(1f, fill = true))
             IconButton(onClick = {
-                val newItems = items.append("")
+                val newItems = items.append(null)
                 data = data.copy(rawValue = newItems)
             }) { Icon(imageVector = Icons.Filled.Add, contentDescription = "") }
         }
@@ -282,17 +283,17 @@ fun fieldToDataRow(moder: SubscriptionModer, field: Field): BaseDataRow {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun Editor(subId: Int) {
     var sections by remember { mutableStateOf(listOf<Section>()) }
     var loading by rememberSaveable { mutableStateOf(true) }
     var saving by rememberSaveable { mutableStateOf(false) }
     var dataToEdit by remember { mutableStateOf<BaseDataRow?>(null) }
-    var sectionIndexOfEditingData by remember { mutableStateOf(-1) }
-    var rowIndexOfEditingData by remember { mutableStateOf(-1) }
-    var rowsLoaded by remember { mutableStateOf(0) }
-    var rowsToLoad by remember { mutableStateOf(1) }
+    var sectionIndexOfEditingData by remember { mutableIntStateOf(-1) }
+    var rowIndexOfEditingData by remember { mutableIntStateOf(-1) }
+    var rowsLoaded by remember { mutableIntStateOf(0) }
+    var rowsToLoad by remember { mutableIntStateOf(1) }
     var searchKeyword by remember { mutableStateOf("") }
     var showFieldNameInsteadOfKey by remember { mutableStateOf(false) }
     val filteredSections = remember(sections, searchKeyword) {
@@ -352,7 +353,7 @@ fun Editor(subId: Int) {
                 IconButton({ showFieldNameInsteadOfKey = !showFieldNameInsteadOfKey }) {
                     if (showFieldNameInsteadOfKey) { Text("a") } else { Text("A") }
                 }
-                TextField(searchKeyword, modifier = Modifier.fillMaxWidth().weight(1f), label = { Text("Search") }, onValueChange = { searchKeyword = it }, singleLine = true, trailingIcon = {
+                TextField(searchKeyword, modifier = Modifier.fillMaxWidth().weight(1f), label = { Text(stringResource(R.string.search)) }, onValueChange = { searchKeyword = it }, singleLine = true, trailingIcon = {
                     if (searchKeyword.isNotEmpty()) {
                         IconButton({ searchKeyword = "" }) {
                             Icon(Icons.Filled.Clear, contentDescription = "Localized description")
@@ -437,7 +438,7 @@ fun Editor(subId: Int) {
                 Column {
                     Row(modifier = Modifier.padding(16.dp)) {
                         Column {
-                            Text("Edit Value", fontWeight = FontWeight.Medium, fontSize = 24.sp)
+                            Text(stringResource(R.string.edit_value), fontWeight = FontWeight.Medium, fontSize = 24.sp)
                             Text("${data.key} (${data.fieldName})", modifier = Modifier.padding(top = 6.dp), fontFamily = FontFamily.Monospace)
                         }
                     }
@@ -450,15 +451,26 @@ fun Editor(subId: Int) {
                             else -> Box(modifier = Modifier.fillMaxWidth())
                         }
                     }
-                    Row(modifier = Modifier.padding(top = 16.dp)) {
-                        Spacer(Modifier.weight(1f))
-                        TextButton(onClick = {
-                            dataToEdit = null
-                            saving = true
-                            updateRow(data)
-                            saving = false
-                        }) { Text(stringResource(R.string.confirm)) }
-                        TextButton(onClick = { dataToEdit = null }) { Text(stringResource(R.string.dismiss)) }
+                    Row(modifier = Modifier.align(Alignment.End).padding(top = 16.dp)) {
+                        TextButton(
+                            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary),
+                            modifier = Modifier.padding(end = 8.dp),
+                            shape = ButtonDefaults.outlinedShape,
+                            onClick = { dataToEdit = null },
+                        ) { Text(stringResource(R.string.dismiss)) }
+                        TextButton(
+                            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary),
+                            shape = ButtonDefaults.outlinedShape,
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                            ),
+                            onClick = {
+                                dataToEdit = null
+                                saving = true
+                                updateRow(data)
+                                saving = false
+                            },
+                        ) { Text(stringResource(R.string.confirm)) }
                     }
                 }
             }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -34,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.Lifecycle
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -43,6 +45,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
+import dev.bluehouse.enablevolte.components.OnLifecycleEvent
 import dev.bluehouse.enablevolte.pages.Config
 import dev.bluehouse.enablevolte.pages.DumpedConfig
 import dev.bluehouse.enablevolte.pages.Editor
@@ -80,33 +83,42 @@ class HomeActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PixelIMSApp() {
+    val context = LocalContext.current
     val navController = rememberNavController()
-    val carrierModer = CarrierModer(LocalContext.current)
+    val carrierModer = CarrierModer(context)
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
 
     var subscriptions by rememberSaveable { mutableStateOf(listOf<SubscriptionInfo>()) }
     var navBuilder by remember {
         mutableStateOf<NavGraphBuilder.() -> Unit>({
-            composable("home", "Home") {
+            composable("home", context.resources.getString(R.string.home)) {
                 Home(navController)
             }
         })
     }
 
-    fun generateNavBuilder(): (NavGraphBuilder.() -> Unit) {
+    fun generateInitialNavBuilder(): (NavGraphBuilder.() -> Unit) {
         return {
             composable("home", "Home") {
                 Home(navController)
             }
+        }
+    }
+
+    fun generateNavBuilder(): (NavGraphBuilder.() -> Unit) {
+        return {
+            composable("home", context.resources.getString(R.string.home)) {
+                Home(navController)
+            }
             for (subscription in subscriptions) {
                 navigation(startDestination = "config${subscription.subscriptionId}", route = "config${subscription.subscriptionId}root") {
-                    composable("config${subscription.subscriptionId}", "SIM Config") {
+                    composable("config${subscription.subscriptionId}", context.resources.getString(R.string.sim_config)) {
                         Config(navController, subscription.subscriptionId)
                     }
-                    composable("config${subscription.subscriptionId}/dump", "Config Dump Viewer") {
+                    composable("config${subscription.subscriptionId}/dump", context.resources.getString(R.string.config_dump_viewer)) {
                         DumpedConfig(subscription.subscriptionId)
                     }
-                    composable("config${subscription.subscriptionId}/edit", "Expert Mode") {
+                    composable("config${subscription.subscriptionId}/edit", context.resources.getString(R.string.expert_mode)) {
                         Editor(subscription.subscriptionId)
                     }
                 }
@@ -114,14 +126,16 @@ fun PixelIMSApp() {
         }
     }
 
-    OnLifecycleEvent { _, event ->
-        if (event == Lifecycle.Event.ON_CREATE) {
-            try {
-                if (checkShizukuPermission(0)) {
+    fun loadApplication() {
+        val shizukuStatus = checkShizukuPermission(0)
+        try {
+            when (shizukuStatus) {
+                ShizukuStatus.GRANTED -> {
                     Log.d(dev.bluehouse.enablevolte.pages.TAG, "Shizuku granted")
                     subscriptions = carrierModer.subscriptions
                     navBuilder = generateNavBuilder()
-                } else {
+                }
+                ShizukuStatus.NOT_GRANTED -> {
                     Shizuku.addRequestPermissionResultListener { _, grantResult ->
                         if (grantResult == PackageManager.PERMISSION_GRANTED) {
                             Log.d(dev.bluehouse.enablevolte.pages.TAG, "Shizuku granted")
@@ -130,8 +144,18 @@ fun PixelIMSApp() {
                         }
                     }
                 }
-            } catch (_: IllegalStateException) {
+                else -> {
+                    subscriptions = listOf()
+                    navBuilder = generateInitialNavBuilder()
+                }
             }
+        } catch (_: IllegalStateException) {
+        }
+    }
+
+    OnLifecycleEvent { _, event ->
+        if (event == Lifecycle.Event.ON_CREATE) {
+            loadApplication()
         }
     }
     Scaffold(
@@ -145,12 +169,22 @@ fun PixelIMSApp() {
                         IconButton(onClick = { navController.popBackStack() }, colors = IconButtonDefaults.filledIconButtonColors(contentColor = MaterialTheme.colorScheme.onPrimary)) {
                             Icon(
                                 imageVector = Icons.Filled.ArrowBack,
-                                contentDescription = "Localized description",
+                                contentDescription = "Go back",
                             )
                         }
                     }
                 },
-                colors = TopAppBarDefaults.smallTopAppBarColors(containerColor = MaterialTheme.colorScheme.primary),
+                actions = {
+                    if (currentBackStackEntry?.destination?.route == "home") {
+                        IconButton(onClick = { loadApplication() }, colors = IconButtonDefaults.filledIconButtonColors(contentColor = MaterialTheme.colorScheme.onPrimary)) {
+                            Icon(
+                                imageVector = Icons.Filled.Refresh,
+                                contentDescription = "Refresh contents",
+                            )
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary),
             )
         },
         bottomBar = {
@@ -195,5 +229,18 @@ fun PixelIMSApp() {
         },
     ) { innerPadding ->
         NavHost(navController, startDestination = "home", Modifier.padding(innerPadding), builder = navBuilder)
+    }
+}
+
+@Preview
+@Composable
+fun PixelIMSAppPreview() {
+    EnableVoLTETheme {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+        ) {
+            PixelIMSApp()
+        }
     }
 }

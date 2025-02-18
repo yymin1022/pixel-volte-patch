@@ -1,9 +1,12 @@
 package dev.bluehouse.enablevolte.pages
 
-import android.os.Build
+import android.app.StatusBarManager
+import android.content.ComponentName
+import android.graphics.drawable.Icon
+import android.os.Build.VERSION
+import android.os.Build.VERSION_CODES
 import android.telephony.CarrierConfigManager
 import android.util.Log
-import android.widget.Toast
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -11,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -20,17 +24,17 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.navigation.NavController
-import dev.bluehouse.enablevolte.BooleanPropertyView
 import dev.bluehouse.enablevolte.CarrierModer
-import dev.bluehouse.enablevolte.ClickablePropertyView
-import dev.bluehouse.enablevolte.HeaderText
-import dev.bluehouse.enablevolte.InfiniteLoadingDialog
-import dev.bluehouse.enablevolte.KeyValueEditView
 import dev.bluehouse.enablevolte.R
+import dev.bluehouse.enablevolte.ShizukuStatus
 import dev.bluehouse.enablevolte.SubscriptionModer
-import dev.bluehouse.enablevolte.UserAgentPropertyView
-import dev.bluehouse.enablevolte.ValueType
 import dev.bluehouse.enablevolte.checkShizukuPermission
+import dev.bluehouse.enablevolte.components.BooleanPropertyView
+import dev.bluehouse.enablevolte.components.ClickablePropertyView
+import dev.bluehouse.enablevolte.components.HeaderText
+import dev.bluehouse.enablevolte.components.InfiniteLoadingDialog
+import dev.bluehouse.enablevolte.components.RadioSelectPropertyView
+import dev.bluehouse.enablevolte.components.UserAgentPropertyView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -42,6 +46,7 @@ fun Config(navController: NavController, subId: Int) {
 
     val moder = SubscriptionModer(subId)
     val carrierModer = CarrierModer(LocalContext.current)
+    val carrierName = moder.carrierName
     val scrollState = rememberScrollState()
     val context = LocalContext.current
     val cannotFindKeyText = stringResource(R.string.cannot_find_key)
@@ -55,7 +60,7 @@ fun Config(navController: NavController, subId: Int) {
     var allowAddingAPNs by rememberSaveable { mutableStateOf(false) }
     var showVoWifiMode by rememberSaveable { mutableStateOf(false) }
     var showVoWifiRoamingMode by rememberSaveable { mutableStateOf(false) }
-    var showVoWifiInNetworkName by rememberSaveable { mutableStateOf(false) }
+    var wfcSpnFormatIndex by rememberSaveable { mutableIntStateOf(0) }
     var showVoWifiIcon by rememberSaveable { mutableStateOf(false) }
     var alwaysDataRATIcon by rememberSaveable { mutableStateOf(false) }
     var supportWfcWifiOnly by rememberSaveable { mutableStateOf(false) }
@@ -70,6 +75,8 @@ fun Config(navController: NavController, subId: Int) {
     var reversedConfigurableItems by rememberSaveable { mutableStateOf<Map<String, String>>(mapOf()) }
     var loading by rememberSaveable { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
+    val simSlotIndex = moder.simSlotIndex
+    val statusBarManager: StatusBarManager = context.getSystemService(StatusBarManager::class.java)
 
     fun loadFlags() {
         Log.d(TAG, "loadFlags")
@@ -80,23 +87,23 @@ fun Config(navController: NavController, subId: Int) {
         }.flatten().associate { field -> field.name to field.get(field) as String }
         reversedConfigurableItems = configurableItems.entries.associate { (k, v) -> v to k }
         voLTEEnabled = moder.isVoLteConfigEnabled
-        voNREnabled = moder.isVoNrConfigEnabled
+        voNREnabled = VERSION.SDK_INT >= VERSION_CODES.UPSIDE_DOWN_CAKE && moder.isVoNrConfigEnabled
         crossSIMEnabled = moder.isCrossSIMConfigEnabled
         voWiFiEnabled = moder.isVoWifiConfigEnabled
         voWiFiEnabledWhileRoaming = moder.isVoWifiWhileRoamingEnabled
-        showIMSinSIMInfo = moder.showIMSinSIMInfo
+        showIMSinSIMInfo = VERSION.SDK_INT >= VERSION_CODES.R && moder.showIMSinSIMInfo
         allowAddingAPNs = moder.allowAddingAPNs
-        showVoWifiMode = moder.showVoWifiMode
-        showVoWifiRoamingMode = moder.showVoWifiRoamingMode
-        showVoWifiInNetworkName = (moder.showVoWifiInNetworkName == 1)
+        showVoWifiMode = VERSION.SDK_INT >= VERSION_CODES.R && moder.showVoWifiMode
+        showVoWifiRoamingMode = VERSION.SDK_INT >= VERSION_CODES.R && moder.showVoWifiRoamingMode
+        wfcSpnFormatIndex = moder.wfcSpnFormatIndex
         showVoWifiIcon = moder.showVoWifiIcon
-        alwaysDataRATIcon = moder.alwaysDataRATIcon
+        alwaysDataRATIcon = VERSION.SDK_INT >= VERSION_CODES.R && moder.alwaysDataRATIcon
         supportWfcWifiOnly = moder.supportWfcWifiOnly
         vtEnabled = moder.isVtConfigEnabled
         ssOverUtEnabled = moder.ssOverUtEnabled
         ssOverCDMAEnabled = moder.ssOverCDMAEnabled
-        show4GForLteEnabled = moder.isShow4GForLteEnabled
-        hideEnhancedDataIconEnabled = moder.isHideEnhancedDataIconEnabled
+        show4GForLteEnabled = VERSION.SDK_INT >= VERSION_CODES.R && moder.isShow4GForLteEnabled
+        hideEnhancedDataIconEnabled = VERSION.SDK_INT >= VERSION_CODES.R && moder.isHideEnhancedDataIconEnabled
         is4GPlusEnabled = moder.is4GPlusEnabled
         configuredUserAgent = try {
             moder.userAgentConfig
@@ -106,7 +113,7 @@ fun Config(navController: NavController, subId: Int) {
     }
 
     LaunchedEffect(true) {
-        if (checkShizukuPermission(0)) {
+        if (checkShizukuPermission(0) == ShizukuStatus.GRANTED) {
             if (carrierModer.deviceSupportsIMS && subId >= 0) {
                 configurable = try {
                     withContext(Dispatchers.Default) {
@@ -144,20 +151,23 @@ fun Config(navController: NavController, subId: Int) {
                 }
             }
 
-            BooleanPropertyView(label = stringResource(R.string.enable_vonr), toggled = voNREnabled) {
-                voNREnabled = if (voNREnabled) {
-                    moder.updateCarrierConfig(CarrierConfigManager.KEY_VONR_ENABLED_BOOL, false)
-                    moder.updateCarrierConfig(CarrierConfigManager.KEY_VONR_SETTING_VISIBILITY_BOOL, false)
-                    false
-                } else {
-                    moder.updateCarrierConfig(CarrierConfigManager.KEY_VONR_ENABLED_BOOL, true)
-                    moder.updateCarrierConfig(CarrierConfigManager.KEY_VONR_SETTING_VISIBILITY_BOOL, true)
-                    moder.restartIMSRegistration()
-                    true
+            BooleanPropertyView(label = stringResource(R.string.enable_vonr), toggled = voNREnabled, minSdk = VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                if (VERSION.SDK_INT >= VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    voNREnabled = if (voNREnabled) {
+                        moder.updateCarrierConfig(CarrierConfigManager.KEY_VONR_ENABLED_BOOL, false)
+                        moder.updateCarrierConfig(CarrierConfigManager.KEY_VONR_SETTING_VISIBILITY_BOOL, false)
+                        false
+                    } else {
+                        moder.updateCarrierConfig(CarrierConfigManager.KEY_VONR_ENABLED_BOOL, true)
+                        moder.updateCarrierConfig(CarrierConfigManager.KEY_VONR_SETTING_VISIBILITY_BOOL, true)
+                        moder.restartIMSRegistration()
+                        true
+                    }
                 }
             }
-            BooleanPropertyView(label = stringResource(R.string.enable_crosssim), toggled = crossSIMEnabled, enabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+
+            BooleanPropertyView(label = stringResource(R.string.enable_crosssim), toggled = crossSIMEnabled, minSdk = VERSION_CODES.TIRAMISU) {
+                if (VERSION.SDK_INT >= VERSION_CODES.TIRAMISU) {
                     crossSIMEnabled = if (crossSIMEnabled) {
                         moder.updateCarrierConfig(CarrierConfigManager.KEY_CARRIER_CROSS_SIM_IMS_AVAILABLE_BOOL, false)
                         moder.updateCarrierConfig(CarrierConfigManager.KEY_ENABLE_CROSS_SIM_CALLING_ON_OPPORTUNISTIC_DATA_BOOL, false)
@@ -250,7 +260,7 @@ fun Config(navController: NavController, subId: Int) {
             }
 
             HeaderText(text = stringResource(R.string.cosmetic_toggles))
-            BooleanPropertyView(label = stringResource(R.string.show_vowifi_preference_in_settings), toggled = showVoWifiMode) {
+            BooleanPropertyView(label = stringResource(R.string.show_vowifi_preference_in_settings), toggled = showVoWifiMode, minSdk = VERSION_CODES.R) {
                 showVoWifiMode = if (showVoWifiMode) {
                     moder.updateCarrierConfig(CarrierConfigManager.KEY_EDITABLE_WFC_MODE_BOOL, false)
                     false
@@ -260,7 +270,7 @@ fun Config(navController: NavController, subId: Int) {
                     true
                 }
             }
-            BooleanPropertyView(label = stringResource(R.string.show_vowifi_roaming_preference_in_settings), toggled = showVoWifiRoamingMode) {
+            BooleanPropertyView(label = stringResource(R.string.show_vowifi_roaming_preference_in_settings), toggled = showVoWifiRoamingMode, minSdk = VERSION_CODES.R) {
                 showVoWifiRoamingMode = if (showVoWifiRoamingMode) {
                     moder.updateCarrierConfig(CarrierConfigManager.KEY_EDITABLE_WFC_ROAMING_MODE_BOOL, false)
                     false
@@ -270,15 +280,27 @@ fun Config(navController: NavController, subId: Int) {
                     true
                 }
             }
-            BooleanPropertyView(label = stringResource(R.string.add_wifi_calling_to_network_name), toggled = showVoWifiInNetworkName) {
-                showVoWifiInNetworkName = if (showVoWifiInNetworkName) {
-                    moder.updateCarrierConfig(CarrierConfigManager.KEY_WFC_SPN_FORMAT_IDX_INT, 0)
-                    false
-                } else {
-                    moder.updateCarrierConfig(CarrierConfigManager.KEY_WFC_SPN_FORMAT_IDX_INT, 1)
-                    moder.restartIMSRegistration()
-                    true
-                }
+            RadioSelectPropertyView(
+                label = stringResource(R.string.wi_fi_calling_carrier_name_format),
+                values = arrayOf(
+                    "%s".format(carrierName),
+                    "%s Wi-Fi Calling".format(carrierName),
+                    "WLAN Call",
+                    "%s WLAN Call".format(carrierName),
+                    "%s Wi-Fi".format(carrierName),
+                    "WiFi Calling | %s".format(carrierName),
+                    "%s VoWifi".format(carrierName),
+                    "Wi-Fi Calling",
+                    "Wi-Fi",
+                    "WiFi Calling",
+                    "VoWifi",
+                    "%s WiFi Calling".format(carrierName),
+                    "WiFi Call",
+                ),
+                selectedIndex = wfcSpnFormatIndex,
+            ) {
+                moder.updateCarrierConfig(CarrierConfigManager.KEY_WFC_SPN_FORMAT_IDX_INT, it)
+                wfcSpnFormatIndex = it
             }
             BooleanPropertyView(label = stringResource(R.string.show_wifi_only_for_vowifi), toggled = supportWfcWifiOnly) {
                 supportWfcWifiOnly = if (supportWfcWifiOnly) {
@@ -299,7 +321,7 @@ fun Config(navController: NavController, subId: Int) {
                     true
                 }
             }
-            BooleanPropertyView(label = stringResource(R.string.always_show_data_icon), toggled = alwaysDataRATIcon) {
+            BooleanPropertyView(label = stringResource(R.string.always_show_data_icon), toggled = alwaysDataRATIcon, minSdk = VERSION_CODES.R) {
                 alwaysDataRATIcon = if (alwaysDataRATIcon) {
                     moder.updateCarrierConfig(CarrierConfigManager.KEY_ALWAYS_SHOW_DATA_RAT_ICON_BOOL, false)
                     false
@@ -308,7 +330,7 @@ fun Config(navController: NavController, subId: Int) {
                     true
                 }
             }
-            BooleanPropertyView(label = stringResource(R.string.show_4g_for_lte_data_icon), toggled = show4GForLteEnabled) {
+            BooleanPropertyView(label = stringResource(R.string.show_4g_for_lte_data_icon), toggled = show4GForLteEnabled, minSdk = VERSION_CODES.R) {
                 show4GForLteEnabled = if (show4GForLteEnabled) {
                     moder.updateCarrierConfig(CarrierConfigManager.KEY_SHOW_4G_FOR_LTE_DATA_ICON_BOOL, false)
                     false
@@ -317,7 +339,7 @@ fun Config(navController: NavController, subId: Int) {
                     true
                 }
             }
-            BooleanPropertyView(label = stringResource(R.string.hide_enhanced_data_icon), toggled = hideEnhancedDataIconEnabled) {
+            BooleanPropertyView(label = stringResource(R.string.hide_enhanced_data_icon), toggled = hideEnhancedDataIconEnabled, minSdk = VERSION_CODES.R) {
                 hideEnhancedDataIconEnabled = if (hideEnhancedDataIconEnabled) {
                     moder.updateCarrierConfig(CarrierConfigManager.KEY_HIDE_LTE_PLUS_DATA_ICON_BOOL, false)
                     false
@@ -326,7 +348,7 @@ fun Config(navController: NavController, subId: Int) {
                     true
                 }
             }
-            BooleanPropertyView(label = stringResource(R.string.show_ims_status_in_sim_status), toggled = showIMSinSIMInfo) {
+            BooleanPropertyView(label = stringResource(R.string.show_ims_status_in_sim_status), toggled = showIMSinSIMInfo, minSdk = VERSION_CODES.R) {
                 showIMSinSIMInfo = if (showIMSinSIMInfo) {
                     moder.updateCarrierConfig(CarrierConfigManager.KEY_SHOW_IMS_REGISTRATION_STATUS_BOOL, false)
                     false
@@ -336,6 +358,40 @@ fun Config(navController: NavController, subId: Int) {
                 }
             }
 
+            if (VERSION.SDK_INT >= VERSION_CODES.TIRAMISU) {
+                HeaderText(text = stringResource(R.string.qstile))
+                ClickablePropertyView(
+                    label = stringResource(R.string.add_status_tile),
+                    value = "",
+                ) {
+                    statusBarManager.requestAddTileService(
+                        ComponentName(
+                            context,
+                            // TODO: what happens if someone tries to use this feature from a triple(or even dual)-SIM phone?
+                            Class.forName("dev.bluehouse.enablevolte.SIM${simSlotIndex + 1}IMSStatusQSTileService"),
+                        ),
+                        context.getString(R.string.qs_status_tile_title, (simSlotIndex + 1).toString()),
+                        Icon.createWithResource(context, R.drawable.ic_launcher_foreground),
+                        {},
+                        {},
+                    )
+                }
+                ClickablePropertyView(
+                    label = stringResource(R.string.add_toggle_tile),
+                    value = "",
+                ) {
+                    statusBarManager.requestAddTileService(
+                        ComponentName(
+                            context,
+                            Class.forName("dev.bluehouse.enablevolte.SIM${simSlotIndex + 1}VoLTEConfigToggleQSTileService"),
+                        ),
+                        context.getString(R.string.qs_toggle_tile_title, (simSlotIndex + 1).toString()),
+                        Icon.createWithResource(context, R.drawable.ic_launcher_foreground),
+                        {},
+                        {},
+                    )
+                }
+            }
             HeaderText(text = stringResource(R.string.miscellaneous))
             ClickablePropertyView(
                 label = stringResource(R.string.reset_all_settings),
@@ -348,33 +404,8 @@ fun Config(navController: NavController, subId: Int) {
                     }
                 }
             }
-            KeyValueEditView(label = stringResource(id = R.string.manually_set_config), availableKeys = configurableItems.keys + configurableItems.values) { key, valueType, value ->
-                val actualKey = configurableItems[key] ?: if (reversedConfigurableItems.containsKey(key)) { key } else { null }
-                if (actualKey == null) {
-                    Toast.makeText(context, cannotFindKeyText, Toast.LENGTH_SHORT).show()
-                    false
-                } else {
-                    try {
-                        when (valueType) {
-                            ValueType.Bool -> moder.updateCarrierConfig(actualKey, value == "true")
-                            ValueType.String -> moder.updateCarrierConfig(actualKey, value)
-                            ValueType.Int -> moder.updateCarrierConfig(actualKey, value.toInt())
-                            ValueType.Long -> moder.updateCarrierConfig(actualKey, value.toLong())
-                            ValueType.BoolArray -> moder.updateCarrierConfig(actualKey, (value.split(",").map { it.trim() == "true" }).toBooleanArray())
-                            ValueType.StringArray -> moder.updateCarrierConfig(actualKey, (value.split(",").map { it.trim() }).toTypedArray())
-                            ValueType.IntArray -> moder.updateCarrierConfig(actualKey, (value.split(",").map { it.trim().toInt() }).toIntArray())
-                            ValueType.LongArray -> moder.updateCarrierConfig(actualKey, (value.split(",").map { it.trim().toLong() }).toLongArray())
-                            else -> {}
-                        }
-                        true
-                    } catch (e: Exception) {
-                        Toast.makeText(context, "Error while updating: ${e.message}", Toast.LENGTH_SHORT).show()
-                        false
-                    }
-                }
-            }
             ClickablePropertyView(
-                label = "Expert Mode",
+                label = stringResource(R.string.expert_mode),
                 value = "",
             ) {
                 navController.navigate("config$subId/edit")

@@ -1,4 +1,4 @@
-# Pixel 6 & 7 VoLTE 활성화
+# Pixel IMS: Tensor Pixel VoLTE 활성화
 
 English version available [here](https://github.com/kyujin-cho/pixel-volte-patch/blob/main/README.en.md).
 
@@ -31,7 +31,11 @@ English version available [here](https://github.com/kyujin-cho/pixel-volte-patch
   - Google Pixel 6a
   - Google Pixel 6 Pro
   - Google Pixel 7
+  - Google Pixel 7a
   - Google Pixel 7 Pro
+  - Google Pixel 8
+  - Google Pixel 8 Pro
+  - Google Pixel Fold
 - [Android Platform Tools](https://developer.android.com/studio/command-line/adb) 이 설치된 Windows, macOS 혹은 Linux 컴퓨터
 - 데이터 통신이 가능한 USB-A to USB-C 혹은 USB-C to USB-C 케이블
 
@@ -55,16 +59,20 @@ English version available [here](https://github.com/kyujin-cho/pixel-volte-patch
    ![image-4](https://github.com/kyujin-cho/pixel-volte-patch/raw/main/assets/Screenshot_20230206-035351.png)
 6. 이제 케이블을 연결한 채로 다음 단계로 이동합니다.
 
-### 패치 어플리케이션 설치
+### Pixel IMS 어플리케이션 설치
 
-1. [다음 링크](https://github.com/kyujin-cho/pixel-volte-patch/releases/download/1.2.6/dev.bluehouse.enablevolte.apk) 혹은 이 Github Repository의 Releases 탭으로 이동하여 최신 패치 어플리케이션의 설치를 위한 APK 파일을 Pixel 단말기에 다운로드 받습니다.
-2. 다운로드 받은 APK 파일을 설치합니다.
-3. 설치한 어플리케이션을 실행합니다.
-4. 다음과 같이 Shizuku 권한을 묻는 팝업 창이 뜰 경우 "모든 경우에 허용" 을 선택합니다.
+1. 현재 다음 두 가지 방법으로 Pixel IMS 앱을 설치할 수 있습니다.
+   - [Github Releases](https://github.com/kyujin-cho/pixel-volte-patch/releases/download/1.2.8/dev.bluehouse.enablevolte.apk) 에서 APK 다운로드 후 설치
+   - [Play Store](https://play.google.com/store/apps/details?id=dev.bluehouse.enablevolte) 에서 다운로드
+2. 설치한 어플리케이션을 실행합니다.
+3. 다음과 같이 Shizuku 권한을 묻는 팝업 창이 뜰 경우 "모든 경우에 허용" 을 선택합니다.
    ![image-5](https://github.com/kyujin-cho/pixel-volte-patch/raw/main/assets/Screenshot_20230208-235239.png)
-5. VoLTE를 활성화 할 SIM의 페이지로 이동합니다. "Enable VoLTE" 토글을 활성화합니다.
+4. VoLTE를 활성화 할 SIM의 페이지로 이동합니다. "Enable VoLTE" 토글을 활성화합니다.
    ![image-6](https://github.com/kyujin-cho/pixel-volte-patch/raw/main/assets/Screenshot_20230208-234343.png)
 6. VoLTE가 작동하는 것을 확인할 때 까지 5분 간격으로 2-3회 Pixel 기기를 다시 시작합니다.
+
+### APK 직접 빌드
+[패치된 android.jar](https://github.com/Reginer/aosp-android-jar/raw/main/android-34/android.jar) 파일을 다운로드 후에 `$ANDROID_PATH/sdk/platforms/android-34` 경로 아래에 붙여넣습니다. 이후에 앱을 빌드 및 시작합니다.
 
 ## 자주 묻는 질문
 

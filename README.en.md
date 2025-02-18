@@ -1,4 +1,4 @@
-# Enable VoLTE on Pixel 6 & 7
+# Pixel IMS: Enable VoLTE on Tensor Pixel devices
 
 ## Troubleshooting
 
@@ -29,11 +29,15 @@ Carriers which aren't possible for testing by developer but reported as supporte
   - Google Pixel 6a
   - Google Pixel 6 Pro
   - Google Pixel 7
+  - Google Pixel 7a
   - Google Pixel 7 Pro
+  - Google Pixel 8
+  - Google Pixel 8 Pro
+  - Google Pixel Fold
 
 #### Optional
 
-only if installing Schizuku using ADB
+only if installing Shizuku using ADB
 
 - Windows, macOS or Linux PC with [Android Platform Tools](https://developer.android.com/studio/command-line/adb) installed
 - USB-A to USB-C or USB-C to USB-C cable to connect Pixel to the PC
@@ -53,7 +57,7 @@ only if installing Schizuku using ADB
    ![image-4](https://github.com/kyujin-cho/pixel-volte-patch/raw/main/assets/Screenshot_20230206-035351.png)
 2. Now continue to next section.
 
-### Using a PC
+### Starting Shizuku with PC
 
 1. Connect your Pixel phone with PC by following [this description](https://shizuku.rikka.app/guide/setup/#start-by-connecting-to-a-computer).
 2. Start shizuku service by executing `adb shell sh /sdcard/Android/data/moe.shizuku.privileged.api/start.sh`. You should see something like "Shizuku is running" at your Pixel phone.
@@ -61,16 +65,19 @@ only if installing Schizuku using ADB
    ![image-4](https://github.com/kyujin-cho/pixel-volte-patch/raw/main/assets/Screenshot_20230206-035351.png)
 3. Now continue to next section.
 
-### Install Patch Application
-
-1. Click the [following link](https://github.com/kyujin-cho/pixel-volte-patch/releases/download/1.2.6/dev.bluehouse.enablevolte.apk) or check out Releases tab of this Github repository to install latest version of `PixelIMS` application's APK file.
-2. Install downloaded APK file.
-3. Start installed application.
-4. Tap "Allow all the time" when seeing prompt asking for Shizuku permission.
+### Install Pixel IMS application
+1. As for now, there are two ways to obtain the application. Choose you favourite way and install the application.
+   - Via [Play Store](https://play.google.com/store/apps/details?id=dev.bluehouse.enablevolte)
+   - From [Github Releases](https://github.com/kyujin-cho/pixel-volte-patch/releases/download/1.2.8/dev.bluehouse.enablevolte.apk), by downloading APK file
+2. Start installed application.
+3. Tap "Allow all the time" when seeing prompt asking for Shizuku permission.
    ![image-5](https://github.com/kyujin-cho/pixel-volte-patch/raw/main/assets/Screenshot_20230208-235239.png)
-5. Toggle "Enable VoLTE" to enable VoLTE.
+4. Toggle "Enable VoLTE" to enable VoLTE.
    ![image-6](https://github.com/kyujin-cho/pixel-volte-patch/raw/main/assets/Screenshot_20230208-234343.png)
-6. Restart your Pixel phone a couple of times until you can see VoLTE is working.
+5. Restart your Pixel phone a couple of times until you can see VoLTE is working.
+
+### Build application from source
+Download [patched android.jar](https://github.com/Reginer/aosp-android-jar/raw/main/android-34/android.jar), put it under `$ANDROID_PATH/sdk/platforms/android-34` and start hacking as usual.
 
 ## FAQ
 
